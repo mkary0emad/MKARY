@@ -1,3 +1,174 @@
+
+
+/* FIREBASE APP CONTROL */
+final String FIREBASE_CONTROL_URL =
+    "https://newproject7-b87ad-default-rtdb.firebaseio.com/app_control.json";
+
+new Thread(new Runnable() {
+    @Override
+    public void run() {
+        java.net.HttpURLConnection conn = null;
+        try {
+            java.net.URL url = new java.net.URL(FIREBASE_CONTROL_URL);
+            conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setUseCaches(false);
+
+            int code = conn.getResponseCode();
+            if (code != 200) return;
+
+            java.io.InputStream in = conn.getInputStream();
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(in, "UTF-8")
+            );
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            reader.close();
+            in.close();
+
+            org.json.JSONObject control =
+                new org.json.JSONObject(response.toString());
+
+            final boolean locked =
+                control.optBoolean("locked", false);
+            final boolean maintenance =
+                control.optBoolean("maintenance", false);
+            final boolean forceUpdate =
+                control.optBoolean("force_update", false);
+            final int minVersion =
+                control.optInt("min_version", 1);
+            final int latestVersion =
+                control.optInt("latest_version", 1);
+            final String message =
+                control.optString("message", "");
+            final String updateUrl =
+                control.optString("update_url", "");
+
+            final int currentVersion = 1;
+
+            final boolean mustUpdate =
+                forceUpdate || currentVersion < minVersion;
+
+            if (locked || maintenance || mustUpdate) {
+                MainActivity.this.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        String title;
+                        String text;
+
+                        if (locked) {
+                            title = "التطبيق مقفول";
+                            text = message.length() > 0
+                                ? message
+                                : "التطبيق غير متاح حاليًا.";
+                        } else if (maintenance) {
+                            title = "صيانة";
+                            text = message.length() > 0
+                                ? message
+                                : "التطبيق تحت الصيانة حاليًا.";
+                        } else {
+                            title = "تحديث مطلوب";
+                            text = message.length() > 0
+                                ? message
+                                : "يتوفر إصدار جديد من التطبيق.";
+                        }
+
+                        final android.app.AlertDialog dialog =
+                            new android.app.AlertDialog.Builder(
+                                MainActivity.this
+                            )
+                            .setTitle(title)
+                            .setMessage(text)
+                            .setCancelable(false)
+                            .setPositiveButton(
+                                mustUpdate && updateUrl.length() > 0
+                                ? "تحديث"
+                                : "إغلاق",
+                                null
+                            )
+                            .create();
+
+                        dialog.setOnShowListener(
+                            new android.content.DialogInterface.OnShowListener() {
+                                @Override
+                                public void onShow(
+                                    android.content.DialogInterface d
+                                ) {
+                                    android.widget.Button button =
+                                        dialog.getButton(
+                                            android.app.AlertDialog.BUTTON_POSITIVE
+                                        );
+
+                                    if (mustUpdate && updateUrl.length() > 0) {
+                                        button.setOnClickListener(
+                                            new android.view.View.OnClickListener() {
+                                                @Override
+                                                public void onClick(
+                                                    android.view.View v
+                                                ) {
+                                                    try {
+                                                        android.content.Intent intent =
+                                                            new android.content.Intent(
+                                                                android.content.Intent.ACTION_VIEW,
+                                                                android.net.Uri.parse(updateUrl)
+                                                            );
+                                                        MainActivity.this.startActivity(intent);
+                                                    } catch (Exception ignored) {
+                                                    }
+                                                }
+                                            }
+                                        );
+                                    } else {
+                                        button.setOnClickListener(
+                                            new android.view.View.OnClickListener() {
+                                                @Override
+                                                public void onClick(
+                                                    android.view.View v
+                                                ) {
+                                                    MainActivity.this.finish();
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            }
+                        );
+
+                        dialog.setOnDismissListener(
+                            new android.content.DialogInterface.OnDismissListener() {
+                                @Override
+                                public void onDismiss(
+                                    android.content.DialogInterface d
+                                ) {
+                                    if (locked || maintenance || mustUpdate) {
+                                        if (!MainActivity.this.isFinishing()) {
+                                            MainActivity.this.finish();
+                                        }
+                                    }
+                                }
+                            }
+                        );
+
+                        dialog.show();
+                    }
+                });
+            }
+
+        } catch (Exception ignored) {
+            // إذا تعذر الاتصال، التطبيق يكمل العمل طبيعيًا.
+        } finally {
+            if (conn != null) {
+                try { conn.disconnect(); } catch (Exception ignored) {}
+            }
+        }
+    }
+}).start();
+
 final int BG =
 android.graphics.Color.rgb(10, 12, 15);
 
